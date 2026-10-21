@@ -105,9 +105,9 @@ class MainActivity:ComponentActivity(){
     var profileOpen by remember{mutableStateOf(false)}
     var homeSection by remember{mutableStateOf("Home")}
     LaunchedEffect(Unit){
-     runCatching{withContext(Dispatchers.IO){val t=session.access();Triple(t,projects(t),notices(t))}}
+     runCatching{withContext(Dispatchers.IO){val t=session.access();Triple(t,projects(t),runCatching{notices(t)}.getOrDefault(emptyList()))}}
       .onSuccess{token=it.first;projects=it.second;noticeQueue=it.third}
-      .onFailure{session.clear()}
+      .onFailure{message="Unable to connect. Check your connection and sign in or retry."}
     }
     fun projectLoad(p:Project) {
      val t=token?:return
@@ -116,8 +116,8 @@ class MainActivity:ComponentActivity(){
       runCatching{withContext(Dispatchers.IO){
        val currentToken=session.access()
        val d=JSONObject(api("/rest/v1/rpc/siteos_client_project_detail",currentToken,JSONObject().put("p_project_id",p.id)))
-       val files=list("/rest/v1/siteos_documents?select=id,title,document_type,storage_path,status&project_id=eq.${p.id}&visible_to_client=eq.true",currentToken)
-       val req=list("/rest/v1/siteos_change_requests?select=id,description,status,created_at&project_id=eq.${p.id}&order=created_at.desc",currentToken)
+       val files=runCatching{list("/rest/v1/siteos_documents?select=id,title,document_type,storage_path,status&project_id=eq.${p.id}&visible_to_client=eq.true",currentToken)}.getOrDefault(JSONArray())
+       val req=runCatching{list("/rest/v1/siteos_change_requests?select=id,description,status,created_at&project_id=eq.${p.id}&order=created_at.desc",currentToken)}.getOrDefault(JSONArray())
        val site=runCatching { fetchSitePhotos(currentToken,p.id) }.getOrDefault(emptyList())
        Pair(Triple(d,(0 until files.length()).map{files.getJSONObject(it)},(0 until req.length()).map{req.getJSONObject(it)}),site)
       }}.onSuccess {detail=it.first.first;documents=it.first.second;requests=it.first.third;photos=it.second}
@@ -193,7 +193,7 @@ class MainActivity:ComponentActivity(){
        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
         Text("Assigned projects",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
         TextButton(onClick={val t=token!!;scope.launch{
-         runCatching{withContext(Dispatchers.IO){Pair(projects(t),notices(t))}}
+         runCatching{withContext(Dispatchers.IO){val fresh=session.access();token=fresh;Pair(projects(fresh),runCatching{notices(fresh)}.getOrDefault(emptyList()))}}
           .onSuccess{projects=it.first;noticeQueue=it.second}
         }}){Text("Refresh")}
        }
