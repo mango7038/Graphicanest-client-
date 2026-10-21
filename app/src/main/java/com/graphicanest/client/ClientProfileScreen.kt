@@ -14,14 +14,14 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 @Composable
-fun ClientProfileScreen(token:String, onBack:()->Unit) {
+internal fun ClientProfileScreen(session:SecureSession, token:String, onBack:()->Unit) {
  val scope=rememberCoroutineScope()
  var profile by remember { mutableStateOf(JSONObject()) }
  var freshPassword by remember { mutableStateOf("") }
  var info by remember { mutableStateOf("") }
  var busy by remember { mutableStateOf(false) }
  LaunchedEffect(token) {
-  runCatching { withContext(Dispatchers.IO) { JSONObject(api("/rest/v1/rpc/siteos_my_client_profile",token,JSONObject())) } }
+  runCatching { withContext(Dispatchers.IO) { JSONObject(api("/rest/v1/rpc/siteos_my_client_profile",session.access(),JSONObject())) } }
    .onSuccess { profile=it }.onFailure { info="Unable to load profile: ${it.message}" }
  }
  LazyColumn(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
@@ -52,12 +52,12 @@ fun ClientProfileScreen(token:String, onBack:()->Unit) {
    }
    Spacer(Modifier.height(8.dp))
    Text("Change password",style=MaterialTheme.typography.titleMedium)
-   OutlinedTextField(freshPassword,{freshPassword=it},label={Text("New password (8+ characters)")},singleLine=true,
+   OutlinedTextField(freshPassword,{freshPassword=it},label={Text("New password (10+ chars, mixed case, number, symbol)")},singleLine=true,
     visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth())
-   Button(enabled=freshPassword.length>=8&&!busy,onClick={
+   Button(enabled=freshPassword.length>=10 && freshPassword.any{it.isUpperCase()} && freshPassword.any{it.isLowerCase()} && freshPassword.any{it.isDigit()} && freshPassword.any{!it.isLetterOrDigit()} && !busy,onClick={
     busy=true
     scope.launch {
-     runCatching { withContext(Dispatchers.IO) { api("/auth/v1/user",token,JSONObject().put("password",freshPassword),method="PUT") } }
+     runCatching { withContext(Dispatchers.IO) { api("/auth/v1/user",session.access(),JSONObject().put("password",freshPassword),method="PUT") } }
       .onSuccess { info="Password updated";freshPassword="" }
       .onFailure { info="Password update failed: ${it.message}" }
      busy=false
