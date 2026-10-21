@@ -89,7 +89,9 @@ class MainActivity:ComponentActivity(){
  override fun onCreate(savedInstanceState:Bundle?){
   super.onCreate(savedInstanceState)
   setContent {
-   ClientTheme {
+   val displayPrefs=remember{getSharedPreferences("client_display",MODE_PRIVATE)}
+   var darkMode by remember{mutableStateOf(displayPrefs.getBoolean("dark_theme",false))}
+   ClientTheme(darkTheme=darkMode) {
     val scope=rememberCoroutineScope()
     var clientId by remember{mutableStateOf("")};var password by remember{mutableStateOf("")}
     val session=remember{SecureSession(this@MainActivity)}
@@ -149,8 +151,8 @@ class MainActivity:ComponentActivity(){
       }){Text("Mark read")}},
       dismissButton={TextButton(onClick={noticeQueue=noticeQueue.drop(1)}){Text("Later")}})
     }
-    Scaffold(containerColor=CanvasBg,bottomBar={
-     if(token!=null && chosen==null) NavigationBar(containerColor=Color.White){
+    Scaffold(containerColor=MaterialTheme.colorScheme.background,bottomBar={
+     if(token!=null && chosen==null) NavigationBar(containerColor=MaterialTheme.colorScheme.surface){
       listOf("Home","My Projects","Documents","Profile").forEach { item ->
        NavigationBarItem(selected=(if(profileOpen)"Profile" else homeSection)==item,
         onClick={if(item=="Profile")profileOpen=true else {profileOpen=false;homeSection=item}},
@@ -158,9 +160,12 @@ class MainActivity:ComponentActivity(){
         label={Text(item)})
       }
      }
-    },topBar={Surface(color=CanvasBg,shadowElevation=0.dp){Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.SpaceBetween){
-     Text(if(chosen==null)"GRAPHICANEST" else chosen!!.business.uppercase(),style=MaterialTheme.typography.titleMedium,color=Ink,fontWeight=FontWeight.Bold)
-     if(token!=null) TextButton(onClick={session.clear();token=null;chosen=null;profileOpen=false;projects=emptyList();noticeQueue=emptyList()}){Text("Sign out")}
+    },topBar={Surface(color=MaterialTheme.colorScheme.background,shadowElevation=0.dp){Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.SpaceBetween){
+     Text(if(chosen==null)"GRAPHICANEST" else chosen!!.business.uppercase(),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onBackground,fontWeight=FontWeight.Bold)
+     Row(horizontalArrangement=Arrangement.spacedBy(0.dp)){
+      TextButton(onClick={darkMode=!darkMode;displayPrefs.edit().putBoolean("dark_theme",darkMode).apply()}){Text(if(darkMode)"☀" else "☾")}
+      if(token!=null) TextButton(onClick={session.clear();token=null;chosen=null;profileOpen=false;projects=emptyList();noticeQueue=emptyList()}){Text("Sign out")}
+     }
     }}}){ pad->
      Column(Modifier.fillMaxSize().padding(pad).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
       if(token==null){
@@ -169,7 +174,7 @@ class MainActivity:ComponentActivity(){
        Spacer(Modifier.height(20.dp))
        Text("Welcome back",style=MaterialTheme.typography.headlineSmall,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold)
        Text("Sign in with your permanent Client ID and password.",color=Muted)
-       OutlinedTextField(clientId,{clientId=it.uppercase().trim()},label={Text("Client ID (e.g. GN1026055)")},modifier=Modifier.fillMaxWidth(),singleLine=true)
+       OutlinedTextField(clientId,{clientId=it.uppercase().trim()},label={Text("Permanent Client ID")},modifier=Modifier.fillMaxWidth(),singleLine=true)
        OutlinedTextField(password,{password=it},label={Text("Password")},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=PasswordVisualTransformation())
        Button(enabled=!busy,onClick={
         busy=true;scope.launch{
@@ -206,7 +211,7 @@ class MainActivity:ComponentActivity(){
        if(projects.isEmpty()) PremiumPanel("No projects shared yet"){Text("Approved projects will appear here after your administrator assigns them.",color=Muted)}
        LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),modifier=Modifier.weight(1f)){
         items(projects,key={it.id}){p->
-         ElevatedCard(onClick={projectLoad(p)},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),colors=CardDefaults.elevatedCardColors(containerColor=androidx.compose.ui.graphics.Color.White)){
+         ElevatedCard(onClick={projectLoad(p)},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),colors=CardDefaults.elevatedCardColors(containerColor=MaterialTheme.colorScheme.surface)){
           Column(Modifier.padding(22.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(p.business.uppercase(),color=Purple,style=MaterialTheme.typography.labelMedium);StatusPill(p.status)}
            Text(p.name,style=MaterialTheme.typography.titleMedium,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold)
@@ -222,7 +227,7 @@ class MainActivity:ComponentActivity(){
        TextButton(onClick={chosen=null}){Text("← All projects")}
        BrandHero(p.business,p.name,p.code.ifBlank{"A clear view of your project."})
        ProgressMeter(p.progress)
-       ScrollableTabRow(selectedTabIndex=detailTabs.indexOf(tab).coerceAtLeast(0),edgePadding=8.dp,containerColor=CanvasBg){
+       ScrollableTabRow(selectedTabIndex=detailTabs.indexOf(tab).coerceAtLeast(0),edgePadding=8.dp,containerColor=MaterialTheme.colorScheme.background){
         detailTabs.forEach{v->Tab(selected=tab==v,onClick={tab=v},text={Text(v,maxLines=1)})}
        }
        if(projectError.isNotBlank()) Text(projectError,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
