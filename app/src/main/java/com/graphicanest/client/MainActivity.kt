@@ -8,6 +8,9 @@ import android.provider.MediaStore
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -104,6 +107,9 @@ class MainActivity:ComponentActivity(){
     var requestText by remember{mutableStateOf("")}
     var profileOpen by remember{mutableStateOf(false)}
     var homeSection by remember{mutableStateOf("Home")}
+    var refreshBusy by remember { mutableStateOf(false) }
+    var projectError by remember { mutableStateOf("") }
+    val detailTabs=listOf("Overview","Site Photos","Billing","Documents","Requests","Team")
     LaunchedEffect(Unit){
      runCatching{withContext(Dispatchers.IO){
       val t=session.access()
@@ -115,7 +121,7 @@ class MainActivity:ComponentActivity(){
     }
     fun projectLoad(p:Project) {
      val t=token?:return
-     chosen=p;tab=when(homeSection){"Documents"->"Documents";else->"Overview"};busy=true
+     chosen=p;tab=when(homeSection){"Documents"->"Documents";else->"Overview"};busy=true;projectError=""
      scope.launch{
       runCatching{withContext(Dispatchers.IO){
        val currentToken=session.access()
@@ -125,7 +131,7 @@ class MainActivity:ComponentActivity(){
        val site=runCatching { fetchSitePhotos(currentToken,p.id) }.getOrDefault(emptyList())
        Pair(Triple(d,(0 until files.length()).map{files.getJSONObject(it)},(0 until req.length()).map{req.getJSONObject(it)}),site)
       }}.onSuccess {detail=it.first.first;documents=it.first.second;requests=it.first.third;photos=it.second}
-       .onFailure{message="Unable to load project: ${it.message}";photos=emptyList();documents=emptyList();requests=emptyList()}
+       .onFailure{projectError="Refresh failed. Previously loaded content is retained.";message="Unable to load project: ${it.message}"}
       busy=false
      }
     }
@@ -185,17 +191,21 @@ class MainActivity:ComponentActivity(){
       }else if(profileOpen){
        ClientProfileScreen(session,token!!,onBack={profileOpen=false})
       }else if(chosen==null){
-       BrandHero("YOUR SPACE","Your projects.","Progress, payments and documents. All in one place.")
+       BrandHero("YOUR SPACE","Welcome back.","Project progress, approved updates and documents.")
+       ClientDashboardSummary(projects.size,projects.count{it.status.contains("Active",true)||it.status.contains("Progress",true)},projects.maxOfOrNull{it.progress} ?: 0)
        if(homeSection!="Home")Text("Choose a project to view "+homeSection.lowercase(),color=Muted)
        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
         Text("Assigned projects",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
-        TextButton(onClick={val t=token!!;scope.launch{
+        TextButton(enabled=!refreshBusy,onClick={refreshBusy=true;scope.launch{
          runCatching{withContext(Dispatchers.IO){val fresh=session.access();token=fresh;Pair(projects(fresh),runCatching{notices(fresh)}.getOrDefault(emptyList()))}}
-          .onSuccess{projects=it.first;noticeQueue=it.second}
-        }}){Text("Refresh")}
+          .onSuccess{projects=it.first;noticeQueue=it.second;message=""}
+          .onFailure{message="Project refresh failed. Try again."}
+         refreshBusy=false
+        }}){Text(if(refreshBusy)"Refreshing…" else "Refresh")}
        }
+       if(projects.isEmpty()) PremiumPanel("No projects shared yet"){Text("Approved projects will appear here after your administrator assigns them.",color=Muted)}
        LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),modifier=Modifier.weight(1f)){
-        items(projects){p->
+        items(projects,key={it.id}){p->
          ElevatedCard(onClick={projectLoad(p)},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),colors=CardDefaults.elevatedCardColors(containerColor=androidx.compose.ui.graphics.Color.White)){
           Column(Modifier.padding(22.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(p.business.uppercase(),color=Purple,style=MaterialTheme.typography.labelMedium);StatusPill(p.status)}
@@ -210,20 +220,24 @@ class MainActivity:ComponentActivity(){
       }else{
        val p=chosen!!
        TextButton(onClick={chosen=null}){Text("← All projects")}
-       BrandHero(p.business,p.name,"A clear view of your project.")
+       BrandHero(p.business,p.name,p.code.ifBlank{"A clear view of your project."})
        ProgressMeter(p.progress)
-       ScrollableTabRow(selectedTabIndex=listOf("Overview","Progress","Photos","Payments","Documents","Requests","Team").indexOf(tab).coerceAtLeast(0),edgePadding=12.dp,containerColor=CanvasBg){
-        listOf("Overview","Site Photos","Billing","Documents","Requests","Team").forEach{v->Tab(selected=tab==v,onClick={tab=v},text={Text(v)})}
+       ScrollableTabRow(selectedTabIndex=detailTabs.indexOf(tab).coerceAtLeast(0),edgePadding=8.dp,containerColor=CanvasBg){
+        detailTabs.forEach{v->Tab(selected=tab==v,onClick={tab=v},text={Text(v,maxLines=1)})}
        }
+       if(projectError.isNotBlank()) Text(projectError,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
        LazyColumn(modifier=Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(12.dp)){
         item{
-         when(tab){
+         AnimatedContent(targetState=tab,transitionSpec={androidx.compose.animation.fadeIn(tween(140)) togetherWith androidx.compose.animation.fadeOut(tween(100))},label="project-tabs"){activeTab->
+         when(activeTab){
           "Overview"->{Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
+           ProjectQuickActions(onPhotos={tab="Site Photos"},onBilling={tab="Billing"},onDocuments={tab="Documents"})
            Info("Project Overview",fmt(detail,"overview"))
            Info("Current work",fmt(detail,"current_work"))
            Info("Current stage",fmt(detail,"current_stage"))
            Info("Next step",fmt(detail,"next_step"))
            Info("Next step date",fmt(detail,"next_step_date"))
+           ProjectMilestoneTimeline(detail)
           }}
           "Progress"->{Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
            Info("Current stage",fmt(detail,"current_stage"))
@@ -231,8 +245,8 @@ class MainActivity:ComponentActivity(){
            Info("Next step",fmt(detail,"next_step"))
            Info("Next milestone date",fmt(detail,"next_step_date"))
           }}
-          "Photos"->{SiteGallery(photos,token!!,onRefresh={projectLoad(p)})}
-          "Payments"->{Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
+          "Site Photos"->{SiteGallery(photos,token!!,onRefresh={projectLoad(p)})}
+          "Billing"->{Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
            val total=detail.optDouble("contract_value",Double.NaN)
            val paid=detail.optDouble("verified_paid",0.0)
            PremiumPanel("PAYMENT SUMMARY"){
@@ -289,6 +303,7 @@ class MainActivity:ComponentActivity(){
            Info("Designer",fmt(detail,"designer_name"))
            PhoneButton("Call designer",detail.str("designer_phone"))
           }}
+         }
          }
         }
        }
