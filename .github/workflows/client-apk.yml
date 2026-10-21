@@ -29,7 +29,7 @@ jobs:
         run: |
           set -euo pipefail
           test -s app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/release/app-release.apk GraphicaNest-Client-preview.apk
+          cp app/build/outputs/apk/debug/app-debug.apk GraphicaNest-Client-preview.apk
           sha256sum GraphicaNest-Client-preview.apk
       - name: Create GitHub prerelease
         env:
