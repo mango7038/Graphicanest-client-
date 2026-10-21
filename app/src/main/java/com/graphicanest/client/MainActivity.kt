@@ -83,7 +83,7 @@ class MainActivity:ComponentActivity(){
  override fun onCreate(savedInstanceState:Bundle?){
   super.onCreate(savedInstanceState)
   setContent {
-   MaterialTheme {
+   ClientTheme {
     val scope=rememberCoroutineScope()
     var email by remember{mutableStateOf("")};var password by remember{mutableStateOf("")}
     var token by remember{mutableStateOf<String?>(null)}
@@ -125,14 +125,17 @@ class MainActivity:ComponentActivity(){
       }){Text("Mark read")}},
       dismissButton={TextButton(onClick={noticeQueue=noticeQueue.drop(1)}){Text("Later")}})
     }
-    Scaffold(topBar={Surface(shadowElevation=2.dp){Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.SpaceBetween){
-     Text(if(chosen==null)"GraphicaNest Client" else chosen!!.business,style=MaterialTheme.typography.titleLarge)
+    Scaffold(containerColor=CanvasBg,topBar={Surface(color=CanvasBg,shadowElevation=0.dp){Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.SpaceBetween){
+     Text(if(chosen==null)"GRAPHICANEST  /  CLIENT" else chosen!!.business.uppercase(),style=MaterialTheme.typography.titleMedium,color=Ink)
      if(token!=null) TextButton(onClick={token=null;chosen=null;projects=emptyList();noticeQueue=emptyList()}){Text("Sign out")}
     }}}){ pad->
      Column(Modifier.fillMaxSize().padding(pad).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
       if(token==null){
-       Text("Welcome",style=MaterialTheme.typography.headlineMedium)
-       Text("Secure client access • Graphica • Nest • SM Construction")
+       Spacer(Modifier.height(22.dp))
+       BrandHero("Private client portal","Your project, simplified.","Track progress, payments and documents in one secure space.")
+       Spacer(Modifier.height(20.dp))
+       Text("Welcome back",style=MaterialTheme.typography.headlineSmall,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold)
+       Text("Sign in using credentials shared by your project team.",color=Muted)
        OutlinedTextField(email,{email=it},label={Text("Email")},modifier=Modifier.fillMaxWidth(),singleLine=true)
        OutlinedTextField(password,{password=it},label={Text("Password")},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=PasswordVisualTransformation())
        Button(enabled=!busy,onClick={
@@ -146,10 +149,11 @@ class MainActivity:ComponentActivity(){
          password="";busy=false
         }
        },modifier=Modifier.fillMaxWidth()){Text("Sign in")}
-       Text("Accounts are created by GraphicaNest administration.",style=MaterialTheme.typography.bodySmall)
+       Text("Your account is managed by GraphicaNest. Contact your project manager for access.",style=MaterialTheme.typography.bodySmall,color=Muted)
       }else if(chosen==null){
+       BrandHero("Your workspace","My projects","Everything important about your projects, in one place.")
        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
-        Text("My Projects",style=MaterialTheme.typography.titleLarge)
+        Text("Assigned projects",style=MaterialTheme.typography.titleLarge)
         TextButton(onClick={val t=token!!;scope.launch{
          runCatching{withContext(Dispatchers.IO){Pair(projects(t),notices(t))}}
           .onSuccess{projects=it.first;noticeQueue=it.second}
@@ -157,13 +161,13 @@ class MainActivity:ComponentActivity(){
        }
        LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),modifier=Modifier.weight(1f)){
         items(projects){p->
-         ElevatedCard(onClick={projectLoad(p)},modifier=Modifier.fillMaxWidth()){
+         ElevatedCard(onClick={projectLoad(p)},modifier=Modifier.fillMaxWidth(),shape=androidx.compose.foundation.shape.RoundedCornerShape(22.dp),colors=CardDefaults.elevatedCardColors(containerColor=androidx.compose.ui.graphics.Color.White)){
           Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-           Text(p.business,style=MaterialTheme.typography.labelLarge)
-           Text(p.name,style=MaterialTheme.typography.titleMedium)
-           Text(p.status)
-           LinearProgressIndicator(progress={p.progress.coerceIn(0,100)/100f},modifier=Modifier.fillMaxWidth())
-           Text("${p.progress}% complete • View project →")
+           Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(p.business.uppercase(),color=Purple,style=MaterialTheme.typography.labelMedium);StatusPill(p.status)}
+           Text(p.name,style=MaterialTheme.typography.titleMedium,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold)
+           if(p.code.isNotBlank())Text(p.code,color=Muted,style=MaterialTheme.typography.labelSmall)
+           ProgressMeter(p.progress)
+           Text("View project details  →",color=Purple,style=MaterialTheme.typography.labelLarge)
           }
          }
         }
@@ -171,9 +175,8 @@ class MainActivity:ComponentActivity(){
       }else{
        val p=chosen!!
        TextButton(onClick={chosen=null}){Text("← All projects")}
-       Text(p.name,style=MaterialTheme.typography.titleLarge)
-       LinearProgressIndicator(progress={p.progress.coerceIn(0,100)/100f},modifier=Modifier.fillMaxWidth())
-       Text("${p.progress}% • ${p.status}")
+       BrandHero(p.business,p.name,"Current status: ${p.status}")
+       ProgressMeter(p.progress)
        ScrollableTabRow(selectedTabIndex=listOf("Overview","Billing","Documents","Requests","Team").indexOf(tab),edgePadding=0.dp){
         listOf("Overview","Billing","Documents","Requests","Team").forEach{v->Tab(selected=tab==v,onClick={tab=v},text={Text(v)})}
        }
@@ -247,10 +250,7 @@ class MainActivity:ComponentActivity(){
  }
 }
 @Composable private fun Info(label:String,value:String){
- ElevatedCard(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
-  Text(label,style=MaterialTheme.typography.labelMedium)
-  Text(value,style=MaterialTheme.typography.bodyLarge)
- }}
+ PremiumPanel(label){Text(value,style=MaterialTheme.typography.bodyLarge)}
 }
 private fun money(o:JSONObject,k:String)=if(o.isNull(k)||!o.has(k))"Not set" else "₹%.2f".format(o.optDouble(k))
 @Composable private fun PhoneButton(label:String,number:String){
