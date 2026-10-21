@@ -88,7 +88,8 @@ class MainActivity:ComponentActivity(){
   setContent {
    ClientTheme {
     val scope=rememberCoroutineScope()
-    var clientId by remember{mutableStateOf("")};var email by remember{mutableStateOf("")};var password by remember{mutableStateOf("")}
+    var clientId by remember{mutableStateOf("")};var password by remember{mutableStateOf("")}
+    val session=remember{SecureSession(this@MainActivity)}
     var token by remember{mutableStateOf<String?>(null)}
     var projects by remember{mutableStateOf(emptyList<Project>())}
     var chosen by remember{mutableStateOf<Project?>(null)}
@@ -103,15 +104,21 @@ class MainActivity:ComponentActivity(){
     var requestText by remember{mutableStateOf("")}
     var profileOpen by remember{mutableStateOf(false)}
     var homeSection by remember{mutableStateOf("Home")}
+    LaunchedEffect(Unit){
+     runCatching{withContext(Dispatchers.IO){val t=session.access();Triple(t,projects(t),notices(t))}}
+      .onSuccess{token=it.first;projects=it.second;noticeQueue=it.third}
+      .onFailure{session.clear()}
+    }
     fun projectLoad(p:Project) {
      val t=token?:return
      chosen=p;tab=when(homeSection){"Documents"->"Documents";"Requests"->"Requests";else->"Overview"};busy=true
      scope.launch{
       runCatching{withContext(Dispatchers.IO){
-       val d=JSONObject(api("/rest/v1/rpc/siteos_client_project_detail",t,JSONObject().put("p_project_id",p.id)))
-       val files=list("/rest/v1/siteos_documents?select=id,title,document_type,storage_path,status&project_id=eq.${p.id}&visible_to_client=eq.true",t)
-       val req=list("/rest/v1/siteos_change_requests?select=id,description,status,created_at&project_id=eq.${p.id}&order=created_at.desc",t)
-       val site=runCatching { fetchSitePhotos(t,p.id) }.getOrDefault(emptyList())
+       val currentToken=session.access()
+       val d=JSONObject(api("/rest/v1/rpc/siteos_client_project_detail",currentToken,JSONObject().put("p_project_id",p.id)))
+       val files=list("/rest/v1/siteos_documents?select=id,title,document_type,storage_path,status&project_id=eq.${p.id}&visible_to_client=eq.true",currentToken)
+       val req=list("/rest/v1/siteos_change_requests?select=id,description,status,created_at&project_id=eq.${p.id}&order=created_at.desc",currentToken)
+       val site=runCatching { fetchSitePhotos(currentToken,p.id) }.getOrDefault(emptyList())
        Pair(Triple(d,(0 until files.length()).map{files.getJSONObject(it)},(0 until req.length()).map{req.getJSONObject(it)}),site)
       }}.onSuccess {detail=it.first.first;documents=it.first.second;requests=it.first.third;photos=it.second}
        .onFailure{message="Unable to load project: ${it.message}";photos=emptyList();documents=emptyList();requests=emptyList()}
@@ -143,7 +150,7 @@ class MainActivity:ComponentActivity(){
      }
     },topBar={Surface(color=CanvasBg,shadowElevation=0.dp){Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.SpaceBetween){
      Text(if(chosen==null)"GRAPHICANEST" else chosen!!.business.uppercase(),style=MaterialTheme.typography.titleMedium,color=Ink,fontWeight=FontWeight.Bold)
-     if(token!=null) TextButton(onClick={token=null;chosen=null;profileOpen=false;projects=emptyList();noticeQueue=emptyList()}){Text("Sign out")}
+     if(token!=null) TextButton(onClick={session.clear();token=null;chosen=null;profileOpen=false;projects=emptyList();noticeQueue=emptyList()}){Text("Sign out")}
     }}}){ pad->
      Column(Modifier.fillMaxSize().padding(pad).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
       if(token==null){
@@ -151,32 +158,22 @@ class MainActivity:ComponentActivity(){
        BrandHero("PRIVATE CLIENT PORTAL","Design. Build. Belong.","A considered space for every detail of your project.")
        Spacer(Modifier.height(20.dp))
        Text("Welcome back",style=MaterialTheme.typography.headlineSmall,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold)
-       Text("Sign in with your Client ID, verified email and password. Your administrator must approve access first.",color=Muted)
+       Text("Sign in with your permanent Client ID and password.",color=Muted)
        OutlinedTextField(clientId,{clientId=it.uppercase().trim()},label={Text("Client ID (e.g. GN1026055)")},modifier=Modifier.fillMaxWidth(),singleLine=true)
-       OutlinedTextField(email,{email=it},label={Text("Email")},modifier=Modifier.fillMaxWidth(),singleLine=true)
        OutlinedTextField(password,{password=it},label={Text("Password")},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=PasswordVisualTransformation())
        Button(enabled=!busy,onClick={
         busy=true;scope.launch{
          runCatching{withContext(Dispatchers.IO){
-          val a=JSONObject(api("/auth/v1/token?grant_type=password",body=JSONObject().put("email",email.trim()).put("password",password)))
+          val a=JSONObject(api("/functions/v1/siteos-client-login",body=JSONObject().put("client_id",clientId.trim()).put("password",password)))
           val t=a.getString("access_token")
-          api("/rest/v1/rpc/siteos_client_confirm_identity",t,JSONObject().put("p_client_code",clientId.trim()))
+          session.save(a)
+          runCatching{api("/rest/v1/rpc/siteos_client_device_heartbeat",t,JSONObject().put("p_push_enabled",false))}
           Triple(t,projects(t),notices(t))
          }}.onSuccess{token=it.first;projects=it.second;noticeQueue=it.third;message="Signed in. Only assigned projects are shown."}
-         .onFailure{message="Login failed: ${it.message}"}
+         .onFailure{message="Sign in unsuccessful. Check credentials or contact your administrator."}
          password="";busy=false
         }
        },modifier=Modifier.fillMaxWidth()){Text("Sign in")}
-       OutlinedButton(enabled=!busy && email.contains("@") && password.length>=8,onClick={
-         busy=true
-         scope.launch{
-           runCatching{withContext(Dispatchers.IO){
-             api("/auth/v1/signup",body=JSONObject().put("email",email.trim()).put("password",password))
-           }}.onSuccess{message="Check your email and verify it. Then sign in using your Client ID."}
-            .onFailure{message="Signup failed: " + (it.message ?: "Please retry")}
-           busy=false
-         }
-       },modifier=Modifier.fillMaxWidth()){Text("Set Up Account / Sign Up")}
        Text("Only your administrator can approve Client ID access and assign projects.",style=MaterialTheme.typography.bodySmall,color=Muted)
       }else if(profileOpen){
        ClientProfileScreen(token!!,onBack={profileOpen=false})
