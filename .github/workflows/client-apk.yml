@@ -23,13 +23,30 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Build Client debug APK
-        run: gradle --no-daemon :app:assembleDebug --stacktrace --console=plain
+      - name: Restore persistent signing key
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.CLIENT_SIGNING_KEYSTORE_BASE64 }}
+          CLIENT_SIGNING_STORE_PASSWORD: ${{ secrets.CLIENT_SIGNING_STORE_PASSWORD }}
+          CLIENT_SIGNING_KEY_ALIAS: ${{ secrets.CLIENT_SIGNING_KEY_ALIAS }}
+          CLIENT_SIGNING_KEY_PASSWORD: ${{ secrets.CLIENT_SIGNING_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$SIGNING_KEYSTORE_BASE64" || { echo "::error::Missing persistent signing keystore. Do not ship an incompatible APK."; exit 1; }
+          test -n "$CLIENT_SIGNING_STORE_PASSWORD"
+          test -n "$CLIENT_SIGNING_KEY_ALIAS"
+          test -n "$CLIENT_SIGNING_KEY_PASSWORD"
+          printf %s "$SIGNING_KEYSTORE_BASE64" | base64 --decode > client-release.jks
+          echo "CLIENT_SIGNING_KEYSTORE_FILE=$GITHUB_WORKSPACE/client-release.jks" >> "$GITHUB_ENV"
+          echo "CLIENT_SIGNING_STORE_PASSWORD=$CLIENT_SIGNING_STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "CLIENT_SIGNING_KEY_ALIAS=$CLIENT_SIGNING_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "CLIENT_SIGNING_KEY_PASSWORD=$CLIENT_SIGNING_KEY_PASSWORD" >> "$GITHUB_ENV"
+      - name: Build permanently signed Client APK
+        run: gradle --no-daemon :app:assembleRelease --stacktrace --console=plain
       - name: Verify APK file
         run: |
           set -euo pipefail
-          test -s app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk GraphicaNest-Client-preview.apk
+          test -s app/build/outputs/apk/release/app-release.apk
+          cp app/build/outputs/apk/release/app-release.apk GraphicaNest-Client-preview.apk
           sha256sum GraphicaNest-Client-preview.apk
       - name: Create GitHub prerelease
         env:
@@ -38,5 +55,5 @@ jobs:
           gh release create "client-preview-${GITHUB_RUN_NUMBER}" GraphicaNest-Client-preview.apk \
             --target "$GITHUB_SHA" \
             --title "GraphicaNest Client Preview ${GITHUB_RUN_NUMBER}" \
-            --notes "Debug-signed MVP test build; not production-ready." \
+            --notes "Persistently signed Client APK; existing debug-signed installations cannot be updated without their original signing key." \
             --prerelease
