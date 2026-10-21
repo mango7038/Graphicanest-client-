@@ -29,7 +29,7 @@ import java.net.URLEncoder
 private const val API="https://yfzlhhibdflohrjjshei.supabase.co"
 private const val PUBLIC_KEY="sb_publishable_U2h7ptLDzgAWbg2SRs3O4Q_f2mAty2u"
 private fun enc(s:String)=URLEncoder.encode(s,"UTF-8")
-private fun api(path:String,token:String?=null,body:JSONObject?=null,method:String=if(body!=null)"POST" else "GET"):String {
+internal fun api(path:String,token:String?=null,body:JSONObject?=null,method:String=if(body!=null)"POST" else "GET"):String {
  val c=URL(API+path).openConnection() as HttpURLConnection
  try {
   c.requestMethod=method;c.connectTimeout=15000;c.readTimeout=20000
@@ -97,6 +97,7 @@ class MainActivity:ComponentActivity(){
     var message by remember{mutableStateOf("Sign in with credentials provided by your project administrator.")}
     var busy by remember{mutableStateOf(false)}
     var requestText by remember{mutableStateOf("")}
+    var profileOpen by remember{mutableStateOf(false)}
     fun projectLoad(p:Project) {
      val t=token?:return
      chosen=p;tab="Overview";busy=true
@@ -127,7 +128,7 @@ class MainActivity:ComponentActivity(){
     }
     Scaffold(containerColor=CanvasBg,topBar={Surface(color=CanvasBg,shadowElevation=0.dp){Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.SpaceBetween){
      Text(if(chosen==null)"GRAPHICANEST  /  CLIENT" else chosen!!.business.uppercase(),style=MaterialTheme.typography.titleMedium,color=Ink)
-     if(token!=null) TextButton(onClick={token=null;chosen=null;projects=emptyList();noticeQueue=emptyList()}){Text("Sign out")}
+     if(token!=null) TextButton(onClick={token=null;chosen=null;profileOpen=false;projects=emptyList();noticeQueue=emptyList()}){Text("Sign out")}
     }}}){ pad->
      Column(Modifier.fillMaxSize().padding(pad).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
       if(token==null){
@@ -150,8 +151,11 @@ class MainActivity:ComponentActivity(){
         }
        },modifier=Modifier.fillMaxWidth()){Text("Sign in")}
        Text("Your account is managed by GraphicaNest. Contact your project manager for access.",style=MaterialTheme.typography.bodySmall,color=Muted)
+      }else if(profileOpen){
+       ClientProfileScreen(token!!,onBack={profileOpen=false})
       }else if(chosen==null){
        BrandHero("Your workspace","My projects","Everything important about your projects, in one place.")
+       TextButton(onClick={profileOpen=true}){Text("My Profile & Settings →")}
        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
         Text("Assigned projects",style=MaterialTheme.typography.titleLarge)
         TextButton(onClick={val t=token!!;scope.launch{
@@ -249,7 +253,7 @@ class MainActivity:ComponentActivity(){
   }
  }
 }
-@Composable private fun Info(label:String,value:String){
+@Composable internal fun Info(label:String,value:String){
  PremiumPanel(label){Text(value,style=MaterialTheme.typography.bodyLarge)}
 }
 private fun money(o:JSONObject,k:String)=if(o.isNull(k)||!o.has(k))"Not set" else "₹%.2f".format(o.optDouble(k))
