@@ -10,14 +10,28 @@ android {
    applicationId = "com.graphicanest.client"
    minSdk = 26
    targetSdk = 35
-   versionCode = 1
-   versionName = "0.1.0-preview"
+   versionCode = 2
+   versionName = "0.2.0-preview"
  }
  compileOptions {
    sourceCompatibility = JavaVersion.VERSION_17
    targetCompatibility = JavaVersion.VERSION_17
  }
  kotlinOptions { jvmTarget = "17" }
+ signingConfigs {
+  create("release") {
+   val filePath = System.getenv("CLIENT_SIGNING_KEYSTORE_FILE")
+   if (!filePath.isNullOrBlank()) {
+    storeFile = file(filePath)
+    storePassword = System.getenv("CLIENT_SIGNING_STORE_PASSWORD")
+    keyAlias = System.getenv("CLIENT_SIGNING_KEY_ALIAS")
+    keyPassword = System.getenv("CLIENT_SIGNING_KEY_PASSWORD")
+   }
+  }
+ }
+ buildTypes {
+  getByName("release") { signingConfig = signingConfigs.getByName("release") }
+ }
  buildFeatures { compose = true }
 }
 dependencies {
