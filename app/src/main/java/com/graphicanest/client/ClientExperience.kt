@@ -1,6 +1,12 @@
 package com.graphicanest.client
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -53,6 +59,28 @@ internal fun ProjectMilestoneTimeline(detail:JSONObject){
       Text(item.second,style=MaterialTheme.typography.bodyMedium)
      }
     }
+   }
+  }
+ }
+}
+
+@Composable
+internal fun PremiumProjectRing(progress:Int){
+ PremiumPanel("PROJECT PROGRESS"){
+  Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(24.dp)){
+   Box(Modifier.size(112.dp),contentAlignment=Alignment.Center){
+    Canvas(Modifier.fillMaxSize()){
+     drawArc(Color(0xFF1C4657),-90f,360f,false,style=Stroke(13.dp.toPx(),cap=StrokeCap.Round))
+     drawArc(Color(0xFF00DDE9),-90f,360f*(progress.coerceIn(0,100)/100f),false,style=Stroke(13.dp.toPx(),cap=StrokeCap.Round))
+    }
+    Column(horizontalAlignment=Alignment.CenterHorizontally){
+     Text("${progress}%",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurface)
+     Text("Completed",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+   }
+   Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(9.dp)){
+    Text("Track every milestone",fontWeight=FontWeight.Bold)
+    Text("Progress is updated by your project team.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
    }
   }
  }
