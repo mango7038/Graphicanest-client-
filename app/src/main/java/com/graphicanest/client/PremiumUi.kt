@@ -20,8 +20,11 @@ val Cyan = Color(0xFFB7936A)
 val CanvasBg = Color(0xFFF8F7F4)
 
 @Composable
-fun ClientTheme(content: @Composable () -> Unit) {
- val scheme = lightColorScheme(primary=Purple,onPrimary=Color.White,secondary=Cyan,
+fun ClientTheme(darkTheme:Boolean=false,content: @Composable () -> Unit) {
+ val scheme = if(darkTheme) darkColorScheme(
+  primary=Color(0xFF97C6CE),onPrimary=Color(0xFF0C2730),secondary=Color(0xFFE2C6A2),
+  background=Color(0xFF101923),surface=Color(0xFF1B2934),onSurface=Color(0xFFF2F6F6),onBackground=Color(0xFFF2F6F6),
+  surfaceVariant=Color(0xFF283846),onSurfaceVariant=Color(0xFFB6C6D0)) else lightColorScheme(primary=Purple,onPrimary=Color.White,secondary=Cyan,
   background=CanvasBg,surface=Color.White,onSurface=Ink,onBackground=Ink,
   surfaceVariant=Color(0xFFF0EDE8),onSurfaceVariant=Muted)
  MaterialTheme(colorScheme=scheme,content=content)
@@ -39,28 +42,28 @@ fun BrandHero(eyebrow:String,title:String,description:String,modifier:Modifier=M
 @Composable
 fun PremiumPanel(label:String,modifier:Modifier=Modifier,content:@Composable ColumnScope.()->Unit){
  ElevatedCard(modifier=modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),
-  colors=CardDefaults.elevatedCardColors(containerColor=Color.White),
+  colors=CardDefaults.elevatedCardColors(containerColor=MaterialTheme.colorScheme.surface),
   elevation=CardDefaults.elevatedCardElevation(defaultElevation=0.dp)){
   Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-   Text(label,color=Muted,style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.SemiBold)
+   Text(label,color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.SemiBold)
    content()
   }
  }
 }
 @Composable
 fun StatusPill(text:String){
- Surface(color=Color(0xFFEAF4EF),shape=RoundedCornerShape(100.dp)){
-  Text(text,color=Color(0xFF246F56),modifier=Modifier.padding(horizontal=11.dp,vertical=5.dp),style=MaterialTheme.typography.labelSmall)
+ Surface(color=MaterialTheme.colorScheme.primaryContainer,shape=RoundedCornerShape(100.dp)){
+  Text(text,color=MaterialTheme.colorScheme.onPrimaryContainer,modifier=Modifier.padding(horizontal=11.dp,vertical=5.dp),style=MaterialTheme.typography.labelSmall)
  }
 }
 @Composable
 fun ProgressMeter(progress:Int){
  Column(verticalArrangement=Arrangement.spacedBy(6.dp)){
   Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
-   Text("Project progress",modifier=Modifier.weight(1f),color=Muted,style=MaterialTheme.typography.labelMedium)
-   Text("$progress%",color=Ink,fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleMedium)
+   Text("Project progress",modifier=Modifier.weight(1f),color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.labelMedium)
+   Text("$progress%",color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleMedium)
   }
   LinearProgressIndicator(progress={progress.coerceIn(0,100)/100f},modifier=Modifier.fillMaxWidth().height(8.dp),
-   color=Purple,trackColor=Color(0xFFE6E9E8),gapSize=0.dp,drawStopIndicator={})
+   color=MaterialTheme.colorScheme.primary,trackColor=MaterialTheme.colorScheme.surfaceVariant,gapSize=0.dp,drawStopIndicator={})
  }
 }
