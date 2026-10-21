@@ -269,14 +269,16 @@ class MainActivity:ComponentActivity(){
              Column {Text("Next due date",color=Muted);Text(fmt(detail,"next_billing_date"))}
             }
            }
-           Text("Payments are counted only after administrator verification.",color=Muted,style=MaterialTheme.typography.bodySmall)
+           Text("Only payments verified by your administrator are included in the paid total.",color=Muted,style=MaterialTheme.typography.bodySmall)
           }}
           "Documents"->{Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-           if(documents.isEmpty())Text("No documents published for this project.")
-           documents.forEach{d->
+           if(documents.isEmpty()) PremiumPanel("No approved documents yet"){Text("Your project team will publish drawings, receipts and documents here after approval.",color=Muted)}
+           Text("${documents.size} approved documents",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+           documents.sortedWith(compareBy<JSONObject>{it.str("document_type")}.thenBy{it.str("title")}).forEach{d->
             OutlinedCard(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp)){
              Text(d.str("title"),style=MaterialTheme.typography.titleMedium)
-             Text(d.str("document_type"))
+             Text(d.str("document_type").ifBlank{"Project document"},color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.labelSmall)
+             Text("Shared with you by the project administrator",style=MaterialTheme.typography.labelSmall,color=Muted)
              Button(enabled=d.str("storage_path").isNotBlank(),onClick={
               val t=token!!
               scope.launch{runCatching{withContext(Dispatchers.IO){savePrivateFile(this@MainActivity,session.access(),d.str("storage_path"),d.str("title"))}}
