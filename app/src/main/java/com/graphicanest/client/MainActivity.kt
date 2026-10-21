@@ -95,6 +95,7 @@ class MainActivity:ComponentActivity(){
     val scope=rememberCoroutineScope()
     var clientId by remember{mutableStateOf("")};var password by remember{mutableStateOf("")}
     val session=remember{SecureSession(this@MainActivity)}
+    var rememberLogin by remember{mutableStateOf(displayPrefs.getBoolean("remember_login",false))}
     var token by remember{mutableStateOf<String?>(null)}
     var projects by remember{mutableStateOf(emptyList<Project>())}
     var chosen by remember{mutableStateOf<Project?>(null)}
@@ -113,6 +114,7 @@ class MainActivity:ComponentActivity(){
     var projectError by remember { mutableStateOf("") }
     val detailTabs=listOf("Overview","Updates","Photos","Files","Visits","Chat","Billing","Team")
     LaunchedEffect(Unit){
+     if(!rememberLogin){session.clear();return@LaunchedEffect}
      runCatching{withContext(Dispatchers.IO){
       val t=session.access()
       val ps=projects(t)
@@ -177,12 +179,16 @@ class MainActivity:ComponentActivity(){
        OutlinedTextField(clientId,{clientId=it.uppercase().trim()},label={Text("Permanent Client ID")},modifier=Modifier.fillMaxWidth(),singleLine=true)
        var passwordVisible by remember { mutableStateOf(false) }
        OutlinedTextField(password,{password=it},label={Text("Password")},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=if(passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation(),trailingIcon={TextButton(onClick={passwordVisible=!passwordVisible}){Text(if(passwordVisible)"Hide" else "Show")}})
+       Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){
+        Checkbox(checked=rememberLogin,onCheckedChange={rememberLogin=it;displayPrefs.edit().putBoolean("remember_login",it).apply()})
+        Text("Keep me signed in on this device",style=MaterialTheme.typography.bodySmall)
+       }
        Button(enabled=!busy,onClick={
         busy=true;scope.launch{
          runCatching{withContext(Dispatchers.IO){
           val a=JSONObject(api("/functions/v1/siteos-client-login",body=JSONObject().put("client_id",clientId.trim()).put("password",password)))
           val t=a.getString("access_token")
-          session.save(a)
+          if(rememberLogin)session.save(a) else session.clear()
           runCatching{api("/rest/v1/rpc/siteos_client_device_heartbeat",t,JSONObject().put("p_push_enabled",false))}
           Triple(t,projects(t),notices(t))
          }}.onSuccess{token=it.first;projects=it.second;noticeQueue=it.third;message=""}
@@ -233,14 +239,16 @@ class MainActivity:ComponentActivity(){
        }
       }else{
        val p=chosen!!
-       TextButton(onClick={chosen=null}){Text("← All projects")}
-       BrandHero(p.business,p.name,p.code.ifBlank{"A clear view of your project."})
-       PremiumProjectRing(p.progress)
-       ScrollableTabRow(selectedTabIndex=detailTabs.indexOf(tab).coerceAtLeast(0),edgePadding=8.dp,containerColor=MaterialTheme.colorScheme.background){
-        detailTabs.forEach{v->Tab(selected=tab==v,onClick={tab=v},text={Text(v,maxLines=1)})}
-       }
-       if(projectError.isNotBlank()) Text(projectError,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
        LazyColumn(modifier=Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(12.dp)){
+        item { TextButton(onClick={chosen=null}){Text("← All projects")} }
+        item { BrandHero(p.business,p.name,p.code.ifBlank{"A clear view of your project."}) }
+        item { PremiumProjectRing(p.progress) }
+        item {
+         ScrollableTabRow(selectedTabIndex=detailTabs.indexOf(tab).coerceAtLeast(0),edgePadding=8.dp,containerColor=MaterialTheme.colorScheme.background){
+          detailTabs.forEach{v->Tab(selected=tab==v,onClick={tab=v},text={Text(v,maxLines=1)})}
+         }
+        }
+        if(projectError.isNotBlank()) item { Text(projectError,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall) }
         item{
          AnimatedContent(targetState=tab,transitionSpec={androidx.compose.animation.fadeIn(tween(140)) togetherWith androidx.compose.animation.fadeOut(tween(100))},label="project-tabs"){activeTab->
          when(activeTab){
