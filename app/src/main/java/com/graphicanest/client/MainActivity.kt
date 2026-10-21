@@ -111,7 +111,7 @@ class MainActivity:ComponentActivity(){
     }
     fun projectLoad(p:Project) {
      val t=token?:return
-     chosen=p;tab=when(homeSection){"Documents"->"Documents";"Requests"->"Requests";else->"Overview"};busy=true
+     chosen=p;tab=when(homeSection){"Documents"->"Documents";else->"Overview"};busy=true
      scope.launch{
       runCatching{withContext(Dispatchers.IO){
        val currentToken=session.access()
@@ -141,7 +141,7 @@ class MainActivity:ComponentActivity(){
     }
     Scaffold(containerColor=CanvasBg,bottomBar={
      if(token!=null && chosen==null) NavigationBar(containerColor=Color.White){
-      listOf("Home","Documents","Requests","Profile").forEach { item ->
+      listOf("Home","My Projects","Documents","Profile").forEach { item ->
        NavigationBarItem(selected=(if(profileOpen)"Profile" else homeSection)==item,
         onClick={if(item=="Profile")profileOpen=true else {profileOpen=false;homeSection=item}},
         icon={Text(when(item){"Home"->"⌂";"Documents"->"▤";"Requests"->"✎";else->"◉"},style=MaterialTheme.typography.titleLarge)},
@@ -169,12 +169,22 @@ class MainActivity:ComponentActivity(){
           session.save(a)
           runCatching{api("/rest/v1/rpc/siteos_client_device_heartbeat",t,JSONObject().put("p_push_enabled",false))}
           Triple(t,projects(t),notices(t))
-         }}.onSuccess{token=it.first;projects=it.second;noticeQueue=it.third;message="Signed in. Only assigned projects are shown."}
+         }}.onSuccess{token=it.first;projects=it.second;noticeQueue=it.third;message=""}
          .onFailure{message="Sign in unsuccessful. Check credentials or contact your administrator."}
          password="";busy=false
         }
        },modifier=Modifier.fillMaxWidth()){Text("Sign in")}
-       Text("Only your administrator can approve Client ID access and assign projects.",style=MaterialTheme.typography.bodySmall,color=Muted)
+       TextButton(enabled=!busy && clientId.isNotBlank(),onClick={
+        busy=true
+        scope.launch{
+         runCatching{withContext(Dispatchers.IO){
+          api("/functions/v1/siteos-client-account",body=JSONObject().put("action","forgot_password").put("client_id",clientId))
+         }}
+         message="If eligible, recovery instructions will be sent to your registered email."
+         busy=false
+        }
+       }){Text("Forgot password?")}
+       Text("Account activation and first-time password setup are managed by your administrator.",style=MaterialTheme.typography.bodySmall,color=Muted)
       }else if(profileOpen){
        ClientProfileScreen(token!!,onBack={profileOpen=false})
       }else if(chosen==null){
@@ -205,7 +215,7 @@ class MainActivity:ComponentActivity(){
        TextButton(onClick={chosen=null}){Text("← All projects")}
        BrandHero(p.business,p.name,"A clear view of your project.")
        ProgressMeter(p.progress)
-       ScrollableTabRow(selectedTabIndex=listOf("Overview","Site Photos","Billing","Documents","Requests","Team").indexOf(tab).coerceAtLeast(0),edgePadding=12.dp,containerColor=CanvasBg){
+       ScrollableTabRow(selectedTabIndex=listOf("Overview","Progress","Photos","Payments","Documents","Requests","Team").indexOf(tab).coerceAtLeast(0),edgePadding=12.dp,containerColor=CanvasBg){
         listOf("Overview","Site Photos","Billing","Documents","Requests","Team").forEach{v->Tab(selected=tab==v,onClick={tab=v},text={Text(v)})}
        }
        LazyColumn(modifier=Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(12.dp)){
@@ -218,8 +228,14 @@ class MainActivity:ComponentActivity(){
            Info("Next step",fmt(detail,"next_step"))
            Info("Next step date",fmt(detail,"next_step_date"))
           }}
-          "Site Photos"->{SiteGallery(photos,token!!,onRefresh={projectLoad(p)})}
-          "Billing"->{Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
+          "Progress"->{Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
+           Info("Current stage",fmt(detail,"current_stage"))
+           Info("Ongoing work",fmt(detail,"current_work"))
+           Info("Next step",fmt(detail,"next_step"))
+           Info("Next milestone date",fmt(detail,"next_step_date"))
+          }}
+          "Photos"->{SiteGallery(photos,token!!,onRefresh={projectLoad(p)})}
+          "Payments"->{Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
            val total=detail.optDouble("contract_value",Double.NaN)
            val paid=detail.optDouble("verified_paid",0.0)
            PremiumPanel("PAYMENT SUMMARY"){
@@ -281,7 +297,7 @@ class MainActivity:ComponentActivity(){
        }
       }
       if(busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-      if(message.isNotBlank() && (message.contains("failed",true) || message.contains("error",true) || message.contains("submitted",true))) Text(message,style=MaterialTheme.typography.labelSmall)
+      if(message.isNotBlank() && (message.contains("failed",true) || message.contains("error",true) || message.contains("submitted",true) || message.contains("recovery",true))) Text(message,style=MaterialTheme.typography.labelSmall)
      }
     }
    }
