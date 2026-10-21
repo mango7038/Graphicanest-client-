@@ -188,7 +188,7 @@ class MainActivity:ComponentActivity(){
          runCatching{withContext(Dispatchers.IO){
           val a=JSONObject(api("/functions/v1/siteos-client-login",body=JSONObject().put("client_id",clientId.trim()).put("password",password)))
           val t=a.getString("access_token")
-          if(rememberLogin)session.save(a) else session.clear()
+          session.save(a) // Required for authenticated API calls during this launch; next launch clears unless opted in.
           runCatching{api("/rest/v1/rpc/siteos_client_device_heartbeat",t,JSONObject().put("p_push_enabled",false))}
           Triple(t,projects(t),notices(t))
          }}.onSuccess{token=it.first;projects=it.second;noticeQueue=it.third;message=""}
