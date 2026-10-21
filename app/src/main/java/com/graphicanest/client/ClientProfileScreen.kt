@@ -27,14 +27,14 @@ internal fun ClientProfileScreen(session:SecureSession, token:String, onBack:()-
  LazyColumn(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
   item {
    TextButton(onClick=onBack){Text("← My projects")}
-   BrandHero("Account center","My profile","Your contact details, assigned projects and security settings.")
+   BrandHero("GRAPHICANEST CLIENT","Profile","Manage your account, preferences and app settings.")
    Spacer(Modifier.height(16.dp))
-   Info("Login email",profile.optString("email","Not available"))
+   Text("Account & Security",style=MaterialTheme.typography.titleLarge)
    val clients=profile.optJSONArray("client_records")?:JSONArray()
    if(clients.length()==0) Info("Client details","Client record has not yet been linked by your project administrator.")
    (0 until clients.length()).forEach{i->
     val c=clients.getJSONObject(i)
-    PremiumPanel(c.optString("business","Client")){
+    PremiumPanel(c.optString("business","Client").uppercase()+"  •  ACCOUNT"){
      Text(c.optString("name",""),style=MaterialTheme.typography.titleMedium)
      Text("Client ID: "+c.optString("client_id","Not set"))
      Text("Email: "+c.optString("email","Not set"))
@@ -44,17 +44,17 @@ internal fun ClientProfileScreen(session:SecureSession, token:String, onBack:()-
     }
    }
    val ps=profile.optJSONArray("projects")?:JSONArray()
-   PremiumPanel("Assigned projects") {
+   PremiumPanel("LINKED PROJECTS") {
     (0 until ps.length()).forEach{i->
      val p=ps.getJSONObject(i)
      Text(p.optString("name")+" • "+p.optString("business"))
     }
    }
    Spacer(Modifier.height(8.dp))
-   Text("Change password",style=MaterialTheme.typography.titleMedium)
-   OutlinedTextField(freshPassword,{freshPassword=it},label={Text("New password (10+ chars, mixed case, number, symbol)")},singleLine=true,
+   Text("Account Security",style=MaterialTheme.typography.titleMedium)
+   OutlinedTextField(freshPassword,{freshPassword=it},label={Text("New password (minimum 6 characters)")},singleLine=true,
     visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth())
-   Button(enabled=freshPassword.length>=10 && freshPassword.any{it.isUpperCase()} && freshPassword.any{it.isLowerCase()} && freshPassword.any{it.isDigit()} && freshPassword.any{!it.isLetterOrDigit()} && !busy,onClick={
+   Button(enabled=freshPassword.length>=6 && !busy,onClick={
     busy=true
     scope.launch {
      runCatching { withContext(Dispatchers.IO) { api("/auth/v1/user",session.access(),JSONObject().put("password",freshPassword),method="PUT") } }
@@ -63,6 +63,8 @@ internal fun ClientProfileScreen(session:SecureSession, token:String, onBack:()-
      busy=false
     }
    }){Text("Update password")}
+   PremiumPanel("NOTIFICATIONS"){Text("Project updates are shown when shared by your team.")}
+   PremiumPanel("HELP & SUPPORT"){Text("Contact your project administrator for access and account assistance.")}
    Text("For corrections to contact details, ask your project manager.",style=MaterialTheme.typography.bodySmall,color=Muted)
    if(info.isNotBlank())Text(info,style=MaterialTheme.typography.bodySmall)
   }
