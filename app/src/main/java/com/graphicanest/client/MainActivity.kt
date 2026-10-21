@@ -196,8 +196,8 @@ class MainActivity:ComponentActivity(){
        TextButton(onClick={chosen=null}){Text("← All projects")}
        BrandHero(p.business,p.name,"A clear view of your project.")
        ProgressMeter(p.progress)
-       ScrollableTabRow(selectedTabIndex=listOf("Overview","Site Photos","Billing","Documents","Requests","Team").indexOf(tab),edgePadding=0.dp){
-        listOf("Overview","Billing","Documents","Requests","Team").forEach{v->Tab(selected=tab==v,onClick={tab=v},text={Text(v)})}
+       ScrollableTabRow(selectedTabIndex=listOf("Overview","Site Photos","Billing","Documents","Requests","Team").indexOf(tab),edgePadding=12.dp,containerColor=CanvasBg){
+        listOf("Overview","Site Photos","Billing","Documents","Requests","Team").forEach{v->Tab(selected=tab==v,onClick={tab=v},text={Text(v)})}
        }
        LazyColumn(modifier=Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(12.dp)){
         item{
@@ -211,14 +211,24 @@ class MainActivity:ComponentActivity(){
           }}
           "Site Photos"->{SiteGallery(photos,token!!,onRefresh={projectLoad(p)})}
           "Billing"->{Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
-           Info("Total contract value",money(detail,"contract_value"))
-           Info("Verified payments received",money(detail,"verified_paid"))
            val total=detail.optDouble("contract_value",Double.NaN)
            val paid=detail.optDouble("verified_paid",0.0)
-           Info("Remaining contract value",if(total.isNaN())"Not set" else "₹%.2f".format((total-paid).coerceAtLeast(0.0)))
-           Info("Currently due",money(detail,"amount_due"))
-           Info("Next billing date",fmt(detail,"next_billing_date"))
-           Text("Payment status is based on admin-verified transactions only.",style=MaterialTheme.typography.bodySmall)
+           PremiumPanel("PAYMENT SUMMARY"){
+            Text("Remaining contract value",color=Muted,style=MaterialTheme.typography.labelMedium)
+            Text(if(total.isNaN())"Not set" else "₹%,.0f".format((total-paid).coerceAtLeast(0.0)),style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.Bold)
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
+             Column {Text("Contract value",color=Muted,style=MaterialTheme.typography.labelSmall);Text(money(detail,"contract_value"))}
+             Column {Text("Verified paid",color=Muted,style=MaterialTheme.typography.labelSmall);Text(money(detail,"verified_paid"))}
+            }
+           }
+           PremiumPanel("UPCOMING PAYMENT"){
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
+             Column {Text("Currently due",color=Muted);Text(money(detail,"amount_due"),style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)}
+             Column {Text("Next due date",color=Muted);Text(fmt(detail,"next_billing_date"))}
+            }
+           }
+           Text("Payments are counted only after administrator verification.",color=Muted,style=MaterialTheme.typography.bodySmall)
           }}
           "Documents"->{Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
            if(documents.isEmpty())Text("No documents published for this project.")
@@ -262,7 +272,7 @@ class MainActivity:ComponentActivity(){
        }
       }
       if(busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-      Text(message,style=MaterialTheme.typography.labelSmall)
+      if(message.isNotBlank() && (message.contains("failed",true) || message.contains("error",true) || message.contains("submitted",true))) Text(message,style=MaterialTheme.typography.labelSmall)
      }
     }
    }
