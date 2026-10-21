@@ -105,9 +105,13 @@ class MainActivity:ComponentActivity(){
     var profileOpen by remember{mutableStateOf(false)}
     var homeSection by remember{mutableStateOf("Home")}
     LaunchedEffect(Unit){
-     runCatching{withContext(Dispatchers.IO){val t=session.access();Triple(t,projects(t),runCatching{notices(t)}.getOrDefault(emptyList()))}}
-      .onSuccess{token=it.first;projects=it.second;noticeQueue=it.third}
-      .onFailure{message="Unable to connect. Check your connection and sign in or retry."}
+     runCatching{withContext(Dispatchers.IO){
+      val t=session.access()
+      val ps=projects(t)
+      runCatching{api("/rest/v1/rpc/siteos_client_device_heartbeat",t,JSONObject().put("p_push_enabled",false))}
+      Triple(t,ps,runCatching{notices(t)}.getOrDefault(emptyList()))
+     }}.onSuccess{token=it.first;projects=it.second;noticeQueue=it.third}
+       .onFailure{message="Unable to connect. Check your connection and sign in or retry."}
     }
     fun projectLoad(p:Project) {
      val t=token?:return
@@ -132,9 +136,9 @@ class MainActivity:ComponentActivity(){
        val t=token!!
        noticeQueue=noticeQueue.drop(1)
        scope.launch{runCatching{withContext(Dispatchers.IO){
-        api("/rest/v1/siteos_client_notification_reads?on_conflict=notification_id,user_id",t,
+        api("/rest/v1/siteos_client_notification_reads?on_conflict=notification_id,user_id",session.access(),
          JSONObject().put("notification_id",current.id).put("user_id",
-          JSONObject(api("/auth/v1/user",t)).str("id")))
+          JSONObject(api("/auth/v1/user",session.access())).str("id")))
        }}}
       }){Text("Mark read")}},
       dismissButton={TextButton(onClick={noticeQueue=noticeQueue.drop(1)}){Text("Later")}})
@@ -186,7 +190,7 @@ class MainActivity:ComponentActivity(){
        }){Text("Forgot password?")}
        Text("Account activation and first-time password setup are managed by your administrator.",style=MaterialTheme.typography.bodySmall,color=Muted)
       }else if(profileOpen){
-       ClientProfileScreen(token!!,onBack={profileOpen=false})
+       ClientProfileScreen(session,token!!,onBack={profileOpen=false})
       }else if(chosen==null){
        BrandHero("YOUR SPACE","Your projects.","Progress, payments and documents. All in one place.")
        if(homeSection!="Home")Text("Choose a project to view "+homeSection.lowercase(),color=Muted)
@@ -263,7 +267,7 @@ class MainActivity:ComponentActivity(){
              Text(d.str("document_type"))
              Button(enabled=d.str("storage_path").isNotBlank(),onClick={
               val t=token!!
-              scope.launch{runCatching{withContext(Dispatchers.IO){savePrivateFile(this@MainActivity,t,d.str("storage_path"),d.str("title"))}}
+              scope.launch{runCatching{withContext(Dispatchers.IO){savePrivateFile(this@MainActivity,session.access(),d.str("storage_path"),d.str("title"))}}
                .onSuccess{message="Saved to Downloads"}.onFailure{message="Download failed: ${it.message}"}
               }
              }){Text("Download")}
@@ -276,8 +280,8 @@ class MainActivity:ComponentActivity(){
             busy=true
             scope.launch{
              runCatching{withContext(Dispatchers.IO){
-              api("/rest/v1/siteos_change_requests",token,JSONObject().put("project_id",p.id)
-               .put("business_id",JSONArray(api("/rest/v1/siteos_projects?select=business_id&id=eq.${p.id}",token)).getJSONObject(0).str("business_id"))
+              api("/rest/v1/siteos_change_requests",session.access(),JSONObject().put("project_id",p.id)
+               .put("business_id",JSONArray(api("/rest/v1/siteos_projects?select=business_id&id=eq.${p.id}",session.access())).getJSONObject(0).str("business_id"))
                .put("description",requestText).put("status","SUBMITTED"))
              }}.onSuccess{message="Request submitted for review";requestText="";projectLoad(p)}
               .onFailure{message="Request not submitted: ${it.message}"}
