@@ -111,10 +111,10 @@ class MainActivity:ComponentActivity(){
        val d=JSONObject(api("/rest/v1/rpc/siteos_client_project_detail",t,JSONObject().put("p_project_id",p.id)))
        val files=list("/rest/v1/siteos_documents?select=id,title,document_type,storage_path,status&project_id=eq.${p.id}&visible_to_client=eq.true",t)
        val req=list("/rest/v1/siteos_change_requests?select=id,description,status,created_at&project_id=eq.${p.id}&order=created_at.desc",t)
-       val site=fetchSitePhotos(t,p.id)
+       val site=runCatching { fetchSitePhotos(t,p.id) }.getOrDefault(emptyList())
        Pair(Triple(d,(0 until files.length()).map{files.getJSONObject(it)},(0 until req.length()).map{req.getJSONObject(it)}),site)
       }}.onSuccess {detail=it.first.first;documents=it.first.second;requests=it.first.third;photos=it.second}
-       .onFailure{message="Unable to load project: ${it.message}"}
+       .onFailure{message="Unable to load project: ${it.message}";photos=emptyList();documents=emptyList();requests=emptyList()}
       busy=false
      }
     }
@@ -196,7 +196,7 @@ class MainActivity:ComponentActivity(){
        TextButton(onClick={chosen=null}){Text("← All projects")}
        BrandHero(p.business,p.name,"A clear view of your project.")
        ProgressMeter(p.progress)
-       ScrollableTabRow(selectedTabIndex=listOf("Overview","Site Photos","Billing","Documents","Requests","Team").indexOf(tab),edgePadding=12.dp,containerColor=CanvasBg){
+       ScrollableTabRow(selectedTabIndex=listOf("Overview","Site Photos","Billing","Documents","Requests","Team").indexOf(tab).coerceAtLeast(0),edgePadding=12.dp,containerColor=CanvasBg){
         listOf("Overview","Site Photos","Billing","Documents","Requests","Team").forEach{v->Tab(selected=tab==v,onClick={tab=v},text={Text(v)})}
        }
        LazyColumn(modifier=Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(12.dp)){
