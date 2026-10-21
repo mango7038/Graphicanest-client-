@@ -219,7 +219,7 @@ class MainActivity:ComponentActivity(){
             scope.launch{
              runCatching{withContext(Dispatchers.IO){
               api("/rest/v1/siteos_change_requests",token,JSONObject().put("project_id",p.id)
-               .put("business_id",JSONObject(api("/rest/v1/siteos_projects?select=business_id&id=eq.${p.id}",token)).str("business_id"))
+               .put("business_id",JSONArray(api("/rest/v1/siteos_projects?select=business_id&id=eq.${p.id}",token)).getJSONObject(0).str("business_id"))
                .put("description",requestText).put("status","SUBMITTED"))
              }}.onSuccess{message="Request submitted for review";requestText="";projectLoad(p)}
               .onFailure{message="Request not submitted: ${it.message}"}
