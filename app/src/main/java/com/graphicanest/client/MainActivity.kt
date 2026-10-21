@@ -8,6 +8,8 @@ import android.provider.MediaStore
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
@@ -203,6 +205,7 @@ class MainActivity:ComponentActivity(){
       }else if(profileOpen){
        ClientProfileScreen(session,token!!,onBack={profileOpen=false})
       }else if(chosen==null){
+       Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){
        Text(if(homeSection=="Projects")"My Projects" else if(homeSection=="Updates")"Updates" else if(homeSection=="Files")"Files" else "Your Space",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.ExtraBold)
        Text("View and track all your projects in one place.",color=Muted)
        if(homeSection=="Home")BrandHero("YOUR SPACE","Your projects.","Track project progress with clarity.")
@@ -224,8 +227,8 @@ class MainActivity:ComponentActivity(){
        }
        if(projects.isEmpty()) PremiumPanel("No projects shared yet"){Text("Approved projects will appear here after your administrator assigns them.",color=Muted)}
        val shownProjects=projects.filter{(searchQuery.isBlank()||it.name.contains(searchQuery,true)||it.code.contains(searchQuery,true)||it.business.contains(searchQuery,true))&&(statusFilter=="All"||(if(statusFilter=="Active")it.status.contains("active",true)||it.status.contains("progress",true) else if(statusFilter=="Completed")it.status.contains("complete",true) else it.status.contains("hold",true)))}
-       LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),modifier=Modifier.weight(1f)){
-        items(shownProjects,key={it.id}){p->
+       Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
+        shownProjects.forEach{p->
          OutlinedCard(onClick={projectLoad(p)},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(23.dp),colors=CardDefaults.outlinedCardColors(containerColor=MaterialTheme.colorScheme.surface),border=androidx.compose.foundation.BorderStroke(1.dp,Color(0xFF245469))){
           Column(Modifier.padding(22.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(p.business.uppercase(),color=Purple,style=MaterialTheme.typography.labelMedium);StatusPill(p.status)}
@@ -237,7 +240,7 @@ class MainActivity:ComponentActivity(){
          }
         }
        }
-      }else{
+      }      }else{
        val p=chosen!!
        LazyColumn(modifier=Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(12.dp)){
         item { TextButton(onClick={chosen=null}){Text("← All projects")} }
