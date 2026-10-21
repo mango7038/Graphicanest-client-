@@ -95,6 +95,7 @@ class MainActivity:ComponentActivity(){
     var tab by remember{mutableStateOf("Overview")}
     var detail by remember{mutableStateOf(JSONObject())}
     var documents by remember{mutableStateOf(emptyList<JSONObject>())}
+    var photos by remember{mutableStateOf(emptyList<SitePhoto>())}
     var requests by remember{mutableStateOf(emptyList<JSONObject>())}
     var noticeQueue by remember{mutableStateOf(emptyList<Notice>())}
     var message by remember{mutableStateOf("Sign in with credentials provided by your project administrator.")}
@@ -110,8 +111,9 @@ class MainActivity:ComponentActivity(){
        val d=JSONObject(api("/rest/v1/rpc/siteos_client_project_detail",t,JSONObject().put("p_project_id",p.id)))
        val files=list("/rest/v1/siteos_documents?select=id,title,document_type,storage_path,status&project_id=eq.${p.id}&visible_to_client=eq.true",t)
        val req=list("/rest/v1/siteos_change_requests?select=id,description,status,created_at&project_id=eq.${p.id}&order=created_at.desc",t)
-       Triple(d,(0 until files.length()).map{files.getJSONObject(it)},(0 until req.length()).map{req.getJSONObject(it)})
-      }}.onSuccess {detail=it.first;documents=it.second;requests=it.third}
+       val site=fetchSitePhotos(t,p.id)
+       Pair(Triple(d,(0 until files.length()).map{files.getJSONObject(it)},(0 until req.length()).map{req.getJSONObject(it)}),site)
+      }}.onSuccess {detail=it.first.first;documents=it.first.second;requests=it.first.third;photos=it.second}
        .onFailure{message="Unable to load project: ${it.message}"}
       busy=false
      }
@@ -194,7 +196,7 @@ class MainActivity:ComponentActivity(){
        TextButton(onClick={chosen=null}){Text("← All projects")}
        BrandHero(p.business,p.name,"A clear view of your project.")
        ProgressMeter(p.progress)
-       ScrollableTabRow(selectedTabIndex=listOf("Overview","Billing","Documents","Requests","Team").indexOf(tab),edgePadding=0.dp){
+       ScrollableTabRow(selectedTabIndex=listOf("Overview","Site Photos","Billing","Documents","Requests","Team").indexOf(tab),edgePadding=0.dp){
         listOf("Overview","Billing","Documents","Requests","Team").forEach{v->Tab(selected=tab==v,onClick={tab=v},text={Text(v)})}
        }
        LazyColumn(modifier=Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(12.dp)){
@@ -207,6 +209,7 @@ class MainActivity:ComponentActivity(){
            Info("Next step",fmt(detail,"next_step"))
            Info("Next step date",fmt(detail,"next_step_date"))
           }}
+          "Site Photos"->{SiteGallery(photos,token!!,onRefresh={projectLoad(p)})}
           "Billing"->{Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
            Info("Total contract value",money(detail,"contract_value"))
            Info("Verified payments received",money(detail,"verified_paid"))
