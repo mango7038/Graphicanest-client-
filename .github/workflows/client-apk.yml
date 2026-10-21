@@ -40,14 +40,26 @@ jobs:
           python3 - <<'PY'
           import os, re, base64, hashlib, pathlib, sys
           raw = os.environ["KEYSTORE_B64"].strip()
-          candidates = sorted(re.findall(r"[A-Za-z0-9+/=]{100,}", raw), key=len, reverse=True)
+          # Values copied from mobile often contain wrapped Base64 lines or
+          # a "CLIENT_SIGNING_KEYSTORE_BASE64=" prefix. Strip only that label.
+          raw = re.sub(r"(?im)^\\s*(?:CLIENT_SIGNING_KEYSTORE_BASE64\\s*[:=]\\s*)", "", raw)
+          wrapped = "".join(raw.split())
+          candidates = [wrapped] if re.fullmatch(r"[A-Za-z0-9+/=]+", wrapped) else []
+          candidates += sorted(re.findall(r"[A-Za-z0-9+/=]{64,}", raw), key=len, reverse=True)
           if not candidates:
-              print("::error::Keystore secret does not contain a Base64 value. Paste the complete long value, not the secret name.")
+              print("::error::Keystore secret is not a Base64 value. Verify the value is pasted, not only its name.")
               sys.exit(1)
-          try:
-              data = base64.b64decode(candidates[0], validate=True)
-          except Exception:
-              print("::error::Keystore Base64 value is incomplete or corrupted. Re-enter the full value.")
+          data = None
+          for candidate in candidates:
+              try:
+                  decoded = base64.b64decode(candidate, validate=True)
+                  if len(decoded) > 200:
+                      data = decoded
+                      break
+              except Exception:
+                  continue
+          if data is None:
+              print("::error::Keystore Base64 is incomplete, altered or mixed with other text.")
               sys.exit(1)
           expected = "c1825600d21a8eebce0562c78942ab7ef3a671e760cbdb6298187009772a386c"
           if hashlib.sha256(data).hexdigest() != expected:
