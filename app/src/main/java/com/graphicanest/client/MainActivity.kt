@@ -220,7 +220,7 @@ class MainActivity:ComponentActivity(){
        val shownProjects=projects.filter{(searchQuery.isBlank()||it.name.contains(searchQuery,true)||it.code.contains(searchQuery,true)||it.business.contains(searchQuery,true))&&(statusFilter=="All"||(if(statusFilter=="Active")it.status.contains("active",true)||it.status.contains("progress",true) else if(statusFilter=="Completed")it.status.contains("complete",true) else it.status.contains("hold",true)))}
        LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),modifier=Modifier.weight(1f)){
         items(shownProjects,key={it.id}){p->
-         ElevatedCard(onClick={projectLoad(p)},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(23.dp),colors=CardDefaults.elevatedCardColors(containerColor=MaterialTheme.colorScheme.surface),border=androidx.compose.foundation.BorderStroke(1.dp,Color(0xFF245469))){
+         OutlinedCard(onClick={projectLoad(p)},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(23.dp),colors=CardDefaults.outlinedCardColors(containerColor=MaterialTheme.colorScheme.surface),border=androidx.compose.foundation.BorderStroke(1.dp,Color(0xFF245469))){
           Column(Modifier.padding(22.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(p.business.uppercase(),color=Purple,style=MaterialTheme.typography.labelMedium);StatusPill(p.status)}
            Text(p.name,style=MaterialTheme.typography.titleMedium,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold)
