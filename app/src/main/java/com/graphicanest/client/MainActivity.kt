@@ -88,7 +88,7 @@ class MainActivity:ComponentActivity(){
   setContent {
    ClientTheme {
     val scope=rememberCoroutineScope()
-    var email by remember{mutableStateOf("")};var password by remember{mutableStateOf("")}
+    var clientId by remember{mutableStateOf("")};var email by remember{mutableStateOf("")};var password by remember{mutableStateOf("")}
     var token by remember{mutableStateOf<String?>(null)}
     var projects by remember{mutableStateOf(emptyList<Project>())}
     var chosen by remember{mutableStateOf<Project?>(null)}
@@ -151,7 +151,8 @@ class MainActivity:ComponentActivity(){
        BrandHero("PRIVATE CLIENT PORTAL","Design. Build. Belong.","A considered space for every detail of your project.")
        Spacer(Modifier.height(20.dp))
        Text("Welcome back",style=MaterialTheme.typography.headlineSmall,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold)
-       Text("Sign in using credentials shared by your project team.",color=Muted)
+       Text("Sign in with your Client ID, verified email and password. Your administrator must approve access first.",color=Muted)
+       OutlinedTextField(clientId,{clientId=it.uppercase().trim()},label={Text("Client ID (e.g. GN1026055)")},modifier=Modifier.fillMaxWidth(),singleLine=true)
        OutlinedTextField(email,{email=it},label={Text("Email")},modifier=Modifier.fillMaxWidth(),singleLine=true)
        OutlinedTextField(password,{password=it},label={Text("Password")},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=PasswordVisualTransformation())
        Button(enabled=!busy,onClick={
@@ -159,13 +160,24 @@ class MainActivity:ComponentActivity(){
          runCatching{withContext(Dispatchers.IO){
           val a=JSONObject(api("/auth/v1/token?grant_type=password",body=JSONObject().put("email",email.trim()).put("password",password)))
           val t=a.getString("access_token")
+          api("/rest/v1/rpc/siteos_client_confirm_identity",t,JSONObject().put("p_client_code",clientId.trim()))
           Triple(t,projects(t),notices(t))
          }}.onSuccess{token=it.first;projects=it.second;noticeQueue=it.third;message="Signed in. Only assigned projects are shown."}
          .onFailure{message="Login failed: ${it.message}"}
          password="";busy=false
         }
        },modifier=Modifier.fillMaxWidth()){Text("Sign in")}
-       Text("Your account is managed by GraphicaNest. Contact your project manager for access.",style=MaterialTheme.typography.bodySmall,color=Muted)
+       OutlinedButton(enabled=!busy && email.contains("@") && password.length>=8,onClick={
+         busy=true
+         scope.launch{
+           runCatching{withContext(Dispatchers.IO){
+             api("/auth/v1/signup",body=JSONObject().put("email",email.trim()).put("password",password))
+           }}.onSuccess{message="Check your email and verify it. Then sign in using your Client ID."}
+            .onFailure{message="Signup failed: " + (it.message ?: "Please retry")}
+           busy=false
+         }
+       },modifier=Modifier.fillMaxWidth()){Text("Set Up Account / Sign Up")}
+       Text("Only your administrator can approve Client ID access and assign projects.",style=MaterialTheme.typography.bodySmall,color=Muted)
       }else if(profileOpen){
        ClientProfileScreen(token!!,onBack={profileOpen=false})
       }else if(chosen==null){
