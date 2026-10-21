@@ -8,6 +8,9 @@ import android.provider.MediaStore
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -98,9 +101,10 @@ class MainActivity:ComponentActivity(){
     var busy by remember{mutableStateOf(false)}
     var requestText by remember{mutableStateOf("")}
     var profileOpen by remember{mutableStateOf(false)}
+    var homeSection by remember{mutableStateOf("Home")}
     fun projectLoad(p:Project) {
      val t=token?:return
-     chosen=p;tab="Overview";busy=true
+     chosen=p;tab=when(homeSection){"Documents"->"Documents";"Requests"->"Requests";else->"Overview"};busy=true
      scope.launch{
       runCatching{withContext(Dispatchers.IO){
        val d=JSONObject(api("/rest/v1/rpc/siteos_client_project_detail",t,JSONObject().put("p_project_id",p.id)))
@@ -126,14 +130,23 @@ class MainActivity:ComponentActivity(){
       }){Text("Mark read")}},
       dismissButton={TextButton(onClick={noticeQueue=noticeQueue.drop(1)}){Text("Later")}})
     }
-    Scaffold(containerColor=CanvasBg,topBar={Surface(color=CanvasBg,shadowElevation=0.dp){Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.SpaceBetween){
-     Text(if(chosen==null)"GRAPHICANEST  /  CLIENT" else chosen!!.business.uppercase(),style=MaterialTheme.typography.titleMedium,color=Ink)
+    Scaffold(containerColor=CanvasBg,bottomBar={
+     if(token!=null && chosen==null) NavigationBar(containerColor=Color.White){
+      listOf("Home","Documents","Requests","Profile").forEach { item ->
+       NavigationBarItem(selected=(if(profileOpen)"Profile" else homeSection)==item,
+        onClick={if(item=="Profile")profileOpen=true else {profileOpen=false;homeSection=item}},
+        icon={Text(when(item){"Home"->"⌂";"Documents"->"▤";"Requests"->"✎";else->"◉"},style=MaterialTheme.typography.titleLarge)},
+        label={Text(item)})
+      }
+     }
+    },topBar={Surface(color=CanvasBg,shadowElevation=0.dp){Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.SpaceBetween){
+     Text(if(chosen==null)"GRAPHICANEST" else chosen!!.business.uppercase(),style=MaterialTheme.typography.titleMedium,color=Ink,fontWeight=FontWeight.Bold)
      if(token!=null) TextButton(onClick={token=null;chosen=null;profileOpen=false;projects=emptyList();noticeQueue=emptyList()}){Text("Sign out")}
     }}}){ pad->
      Column(Modifier.fillMaxSize().padding(pad).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
       if(token==null){
-       Spacer(Modifier.height(22.dp))
-       BrandHero("Private client portal","Your project, simplified.","Track progress, payments and documents in one secure space.")
+       Spacer(Modifier.height(38.dp))
+       BrandHero("PRIVATE CLIENT PORTAL","Design. Build. Belong.","A considered space for every detail of your project.")
        Spacer(Modifier.height(20.dp))
        Text("Welcome back",style=MaterialTheme.typography.headlineSmall,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold)
        Text("Sign in using credentials shared by your project team.",color=Muted)
@@ -154,10 +167,10 @@ class MainActivity:ComponentActivity(){
       }else if(profileOpen){
        ClientProfileScreen(token!!,onBack={profileOpen=false})
       }else if(chosen==null){
-       BrandHero("Your workspace","My projects","Everything important about your projects, in one place.")
-       TextButton(onClick={profileOpen=true}){Text("My Profile & Settings →")}
+       BrandHero("YOUR SPACE","Your projects.","Progress, payments and documents. All in one place.")
+       if(homeSection!="Home")Text("Choose a project to view "+homeSection.lowercase(),color=Muted)
        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
-        Text("Assigned projects",style=MaterialTheme.typography.titleLarge)
+        Text("Assigned projects",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
         TextButton(onClick={val t=token!!;scope.launch{
          runCatching{withContext(Dispatchers.IO){Pair(projects(t),notices(t))}}
           .onSuccess{projects=it.first;noticeQueue=it.second}
@@ -165,8 +178,8 @@ class MainActivity:ComponentActivity(){
        }
        LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),modifier=Modifier.weight(1f)){
         items(projects){p->
-         ElevatedCard(onClick={projectLoad(p)},modifier=Modifier.fillMaxWidth(),shape=androidx.compose.foundation.shape.RoundedCornerShape(22.dp),colors=CardDefaults.elevatedCardColors(containerColor=androidx.compose.ui.graphics.Color.White)){
-          Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+         ElevatedCard(onClick={projectLoad(p)},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),colors=CardDefaults.elevatedCardColors(containerColor=androidx.compose.ui.graphics.Color.White)){
+          Column(Modifier.padding(22.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(p.business.uppercase(),color=Purple,style=MaterialTheme.typography.labelMedium);StatusPill(p.status)}
            Text(p.name,style=MaterialTheme.typography.titleMedium,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold)
            if(p.code.isNotBlank())Text(p.code,color=Muted,style=MaterialTheme.typography.labelSmall)
@@ -179,7 +192,7 @@ class MainActivity:ComponentActivity(){
       }else{
        val p=chosen!!
        TextButton(onClick={chosen=null}){Text("← All projects")}
-       BrandHero(p.business,p.name,"Current status: ${p.status}")
+       BrandHero(p.business,p.name,"A clear view of your project.")
        ProgressMeter(p.progress)
        ScrollableTabRow(selectedTabIndex=listOf("Overview","Billing","Documents","Requests","Team").indexOf(tab),edgePadding=0.dp){
         listOf("Overview","Billing","Documents","Requests","Team").forEach{v->Tab(selected=tab==v,onClick={tab=v},text={Text(v)})}
