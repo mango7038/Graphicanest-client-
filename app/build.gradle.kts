@@ -10,8 +10,8 @@ android {
    applicationId = "com.graphicanest.client"
    minSdk = 26
    targetSdk = 35
-   versionCode = 15
-   versionName = "1.1.0-rc3"
+   versionCode = 16
+   versionName = "1.2.0-rc1"
  }
  compileOptions {
    sourceCompatibility = JavaVersion.VERSION_17
