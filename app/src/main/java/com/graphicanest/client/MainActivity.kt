@@ -178,15 +178,8 @@ class MainActivity:ComponentActivity(){
          password="";busy=false
         }
        },modifier=Modifier.fillMaxWidth()){Text("Sign in")}
-       TextButton(enabled=!busy && clientId.isNotBlank(),onClick={
-        busy=true
-        scope.launch{
-         runCatching{withContext(Dispatchers.IO){
-          api("/functions/v1/siteos-client-account",body=JSONObject().put("action","forgot_password").put("client_id",clientId))
-         }}
-         message="If eligible, recovery instructions will be sent to your registered email."
-         busy=false
-        }
+       TextButton(enabled=!busy,onClick={
+         message="Forgot your password? Contact your project administrator. They can securely issue a new temporary password for your existing Client ID."
        }){Text("Forgot password?")}
        Text("Account activation and first-time password setup are managed by your administrator.",style=MaterialTheme.typography.bodySmall,color=Muted)
       }else if(profileOpen){
