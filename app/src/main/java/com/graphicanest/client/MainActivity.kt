@@ -90,7 +90,7 @@ class MainActivity:ComponentActivity(){
   super.onCreate(savedInstanceState)
   setContent {
    val displayPrefs=remember{getSharedPreferences("client_display",MODE_PRIVATE)}
-   var darkMode by remember{mutableStateOf(displayPrefs.getBoolean("dark_theme",false))}
+   var darkMode by remember{mutableStateOf(displayPrefs.getBoolean("dark_theme",true))}
    ClientTheme(darkTheme=darkMode) {
     val scope=rememberCoroutineScope()
     var clientId by remember{mutableStateOf("")};var password by remember{mutableStateOf("")}
@@ -111,7 +111,7 @@ class MainActivity:ComponentActivity(){
     var homeSection by remember{mutableStateOf("Home")}
     var refreshBusy by remember { mutableStateOf(false) }
     var projectError by remember { mutableStateOf("") }
-    val detailTabs=listOf("Overview","Site Photos","Billing","Documents","Requests","Team")
+    val detailTabs=listOf("Overview","Updates","Photos","Files","Visits","Chat","Billing","Team")
     LaunchedEffect(Unit){
      runCatching{withContext(Dispatchers.IO){
       val t=session.access()
@@ -123,7 +123,7 @@ class MainActivity:ComponentActivity(){
     }
     fun projectLoad(p:Project) {
      val t=token?:return
-     chosen=p;tab=when(homeSection){"Documents"->"Documents";else->"Overview"};busy=true;projectError=""
+     chosen=p;tab=when(homeSection){"Files"->"Files";"Updates"->"Updates";else->"Overview"};busy=true;projectError=""
      scope.launch{
       runCatching{withContext(Dispatchers.IO){
        val currentToken=session.access()
@@ -152,16 +152,16 @@ class MainActivity:ComponentActivity(){
       dismissButton={TextButton(onClick={noticeQueue=noticeQueue.drop(1)}){Text("Later")}})
     }
     Scaffold(containerColor=MaterialTheme.colorScheme.background,bottomBar={
-     if(token!=null && chosen==null) NavigationBar(containerColor=MaterialTheme.colorScheme.surface){
-      listOf("Home","My Projects","Documents","Profile").forEach { item ->
+     if(token!=null && chosen==null) NavigationBar(containerColor=MaterialTheme.colorScheme.surface,tonalElevation=8.dp){
+      listOf("Home","Projects","Updates","Files","Profile").forEach { item ->
        NavigationBarItem(selected=(if(profileOpen)"Profile" else homeSection)==item,
         onClick={if(item=="Profile")profileOpen=true else {profileOpen=false;homeSection=item}},
-        icon={Text(when(item){"Home"->"⌂";"Documents"->"▤";"Requests"->"✎";else->"◉"},style=MaterialTheme.typography.titleLarge)},
+        icon={Text(when(item){"Home"->"⌂";"Projects"->"▥";"Updates"->"▤";"Files"->"▱";else->"◉"},style=MaterialTheme.typography.titleLarge)},
         label={Text(item)})
       }
      }
     },topBar={Surface(color=MaterialTheme.colorScheme.background,shadowElevation=0.dp){Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.SpaceBetween){
-     Text(if(chosen==null)"GRAPHICANEST" else chosen!!.business.uppercase(),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onBackground,fontWeight=FontWeight.Bold)
+     Text(if(chosen==null)"GraphicaNest  CLIENT" else chosen!!.business.uppercase(),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onBackground,fontWeight=FontWeight.Bold)
      Row(horizontalArrangement=Arrangement.spacedBy(0.dp)){
       TextButton(onClick={darkMode=!darkMode;displayPrefs.edit().putBoolean("dark_theme",darkMode).apply()}){Text(if(darkMode)"☀" else "☾")}
       if(token!=null) TextButton(onClick={session.clear();token=null;chosen=null;profileOpen=false;projects=emptyList();noticeQueue=emptyList()}){Text("Sign out")}
@@ -169,13 +169,14 @@ class MainActivity:ComponentActivity(){
     }}}){ pad->
      Column(Modifier.fillMaxSize().padding(pad).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
       if(token==null){
-       Spacer(Modifier.height(38.dp))
-       BrandHero("PRIVATE CLIENT PORTAL","Design. Build. Belong.","A considered space for every detail of your project.")
+       Spacer(Modifier.height(16.dp))
+       BrandHero("GRAPHICANEST CLIENT","Track your projects with clarity.","Turning spaces into better lives.")
        Spacer(Modifier.height(20.dp))
-       Text("Welcome back",style=MaterialTheme.typography.headlineSmall,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold)
+       Text("Secure Client Login",style=MaterialTheme.typography.headlineSmall,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold)
        Text("Sign in with your permanent Client ID and password.",color=Muted)
        OutlinedTextField(clientId,{clientId=it.uppercase().trim()},label={Text("Permanent Client ID")},modifier=Modifier.fillMaxWidth(),singleLine=true)
-       OutlinedTextField(password,{password=it},label={Text("Password")},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=PasswordVisualTransformation())
+       var passwordVisible by remember { mutableStateOf(false) }
+       OutlinedTextField(password,{password=it},label={Text("Password")},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=if(passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation(),trailingIcon={TextButton(onClick={passwordVisible=!passwordVisible}){Text(if(passwordVisible)"Hide" else "Show")}})
        Button(enabled=!busy,onClick={
         busy=true;scope.launch{
          runCatching{withContext(Dispatchers.IO){
@@ -188,7 +189,7 @@ class MainActivity:ComponentActivity(){
          .onFailure{message="Sign in unsuccessful. Check credentials or contact your administrator."}
          password="";busy=false
         }
-       },modifier=Modifier.fillMaxWidth()){Text("Sign in")}
+       },modifier=Modifier.fillMaxWidth().height(54.dp),colors=ButtonDefaults.buttonColors(containerColor=Purple,contentColor=Color(0xFF001A26)),shape=RoundedCornerShape(50.dp)){Text("🔒  Login   →",fontWeight=FontWeight.Bold)}
        TextButton(enabled=!busy,onClick={
          message="Forgot your password? Contact your project administrator. They can securely issue a new temporary password for your existing Client ID."
        }){Text("Forgot password?")}
@@ -196,9 +197,16 @@ class MainActivity:ComponentActivity(){
       }else if(profileOpen){
        ClientProfileScreen(session,token!!,onBack={profileOpen=false})
       }else if(chosen==null){
-       BrandHero("YOUR SPACE","Welcome back.","Project progress, approved updates and documents.")
+       Text(if(homeSection=="Projects")"My Projects" else if(homeSection=="Updates")"Updates" else if(homeSection=="Files")"Files" else "Your Space",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.ExtraBold)
+       Text("View and track all your projects in one place.",color=Muted)
+       if(homeSection=="Home")BrandHero("YOUR SPACE","Your projects.","Track project progress with clarity.")
        ClientDashboardSummary(projects.size,projects.count{it.status.contains("Active",true)||it.status.contains("Progress",true)},projects.maxOfOrNull{it.progress} ?: 0)
-       if(homeSection!="Home")Text("Choose a project to view "+homeSection.lowercase(),color=Muted)
+       var searchQuery by remember { mutableStateOf("") }
+       var statusFilter by remember { mutableStateOf("All") }
+       OutlinedTextField(searchQuery,{searchQuery=it},modifier=Modifier.fillMaxWidth(),placeholder={Text("⌕  Search projects, location or type...")},singleLine=true,shape=RoundedCornerShape(18.dp))
+       Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(7.dp)){
+        listOf("All","Active","Completed","On Hold").forEach { v -> FilterChip(selected=statusFilter==v,onClick={statusFilter=v},label={Text(v)}) }
+       }
        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
         Text("Assigned projects",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
         TextButton(enabled=!refreshBusy,onClick={refreshBusy=true;scope.launch{
@@ -209,9 +217,10 @@ class MainActivity:ComponentActivity(){
         }}){Text(if(refreshBusy)"Refreshing…" else "Refresh")}
        }
        if(projects.isEmpty()) PremiumPanel("No projects shared yet"){Text("Approved projects will appear here after your administrator assigns them.",color=Muted)}
+       val shownProjects=projects.filter{(searchQuery.isBlank()||it.name.contains(searchQuery,true)||it.code.contains(searchQuery,true)||it.business.contains(searchQuery,true))&&(statusFilter=="All"||(if(statusFilter=="Active")it.status.contains("active",true)||it.status.contains("progress",true) else if(statusFilter=="Completed")it.status.contains("complete",true) else it.status.contains("hold",true)))}
        LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),modifier=Modifier.weight(1f)){
-        items(projects,key={it.id}){p->
-         ElevatedCard(onClick={projectLoad(p)},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),colors=CardDefaults.elevatedCardColors(containerColor=MaterialTheme.colorScheme.surface)){
+        items(shownProjects,key={it.id}){p->
+         ElevatedCard(onClick={projectLoad(p)},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(23.dp),colors=CardDefaults.elevatedCardColors(containerColor=MaterialTheme.colorScheme.surface),border=androidx.compose.foundation.BorderStroke(1.dp,Color(0xFF245469))){
           Column(Modifier.padding(22.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(p.business.uppercase(),color=Purple,style=MaterialTheme.typography.labelMedium);StatusPill(p.status)}
            Text(p.name,style=MaterialTheme.typography.titleMedium,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold)
@@ -226,7 +235,7 @@ class MainActivity:ComponentActivity(){
        val p=chosen!!
        TextButton(onClick={chosen=null}){Text("← All projects")}
        BrandHero(p.business,p.name,p.code.ifBlank{"A clear view of your project."})
-       ProgressMeter(p.progress)
+       PremiumProjectRing(p.progress)
        ScrollableTabRow(selectedTabIndex=detailTabs.indexOf(tab).coerceAtLeast(0),edgePadding=8.dp,containerColor=MaterialTheme.colorScheme.background){
         detailTabs.forEach{v->Tab(selected=tab==v,onClick={tab=v},text={Text(v,maxLines=1)})}
        }
@@ -236,7 +245,7 @@ class MainActivity:ComponentActivity(){
          AnimatedContent(targetState=tab,transitionSpec={androidx.compose.animation.fadeIn(tween(140)) togetherWith androidx.compose.animation.fadeOut(tween(100))},label="project-tabs"){activeTab->
          when(activeTab){
           "Overview"->{Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
-           ProjectQuickActions(onPhotos={tab="Site Photos"},onBilling={tab="Billing"},onDocuments={tab="Documents"})
+           ProjectQuickActions(onPhotos={tab="Photos"},onBilling={tab="Billing"},onDocuments={tab="Files"})
            Info("Project Overview",fmt(detail,"overview"))
            Info("Current work",fmt(detail,"current_work"))
            Info("Current stage",fmt(detail,"current_stage"))
@@ -250,7 +259,7 @@ class MainActivity:ComponentActivity(){
            Info("Next step",fmt(detail,"next_step"))
            Info("Next milestone date",fmt(detail,"next_step_date"))
           }}
-          "Site Photos"->{SiteGallery(photos,token!!,onRefresh={projectLoad(p)})}
+          "Photos"->{SiteGallery(photos,token!!,onRefresh={projectLoad(p)})}
           "Billing"->{Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
            val total=detail.optDouble("contract_value",Double.NaN)
            val paid=detail.optDouble("verified_paid",0.0)
@@ -271,7 +280,7 @@ class MainActivity:ComponentActivity(){
            }
            Text("Only payments verified by your administrator are included in the paid total.",color=Muted,style=MaterialTheme.typography.bodySmall)
           }}
-          "Documents"->{Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+          "Files"->{Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
            if(documents.isEmpty()) PremiumPanel("No approved documents yet"){Text("Your project team will publish drawings, receipts and documents here after approval.",color=Muted)}
            Text("${documents.size} approved documents",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
            documents.sortedWith(compareBy<JSONObject>{it.str("document_type")}.thenBy{it.str("title")}).forEach{d->
@@ -288,7 +297,7 @@ class MainActivity:ComponentActivity(){
             }}
            }
           }}
-          "Requests"->{Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+          "Chat"->{Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
            OutlinedTextField(requestText,{requestText=it},label={Text("Describe the requested change")},modifier=Modifier.fillMaxWidth(),minLines=3)
            Button(enabled=requestText.isNotBlank()&&!busy,onClick={
             busy=true
@@ -304,6 +313,11 @@ class MainActivity:ComponentActivity(){
            }){Text("Submit change request")}
            requests.forEach{Info(it.str("status"),it.str("description"))}
           }}
+          "Updates"->{Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
+           ProjectMilestoneTimeline(detail)
+           requests.forEach{Info(it.str("status"),it.str("description"))}
+          }}
+          "Visits"->{PremiumPanel("VISITS & MILESTONES"){Text("Site visit details will appear when shared by your project team.");ProjectMilestoneTimeline(detail)}}
           "Team"->{Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
            Info("Contractor",fmt(detail,"contractor_name"))
            PhoneButton("Call contractor",detail.str("contractor_phone"))
